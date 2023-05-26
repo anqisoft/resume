@@ -1,0 +1,31 @@
+{
+	"email": "greenxmcn@gmail.com\n",
+	"phones": [
+		{
+			"phone": "1377****404",
+			"name": {
+				"en": "AnQi",
+				"chinese": "吴启萍",
+				"traditional": "吳啟萍"
+			},
+			"kind": {
+				"en": "feature phone",
+				"zh_cn": "功能手机",
+				"zh_tw": "功能手機"
+			}
+		},
+		{
+			"phone": "189******04",
+			"name": {
+				"en": "AnQi",
+				"chinese": "吴启萍",
+				"traditional": "吳啟萍"
+			},
+			"kind": {
+				"en": "Smartphone",
+				"zh_cn": "智能手机",
+				"zh_tw": "智能手機"
+			}
+		}
+	]
+}

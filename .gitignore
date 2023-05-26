@@ -1,0 +1,6 @@
+.git
+.idea
+*.zip
+venv
+__pycache__
+git.log

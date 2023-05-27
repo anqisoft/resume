@@ -1,7 +1,8 @@
 import json
+import os
 from enum import Enum
 
-from fastapi import FastAPI, Response
+from fastapi import FastAPI, Response, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.responses import FileResponse
 
@@ -33,10 +34,6 @@ HTML_TEMPLATE = '''
     </head>
     <body>
         {}
-        <script>
-            document.getElementsByTagName('html')[0].setAttribute('lang', localStorage.getItem('lang') || 'en' );
-            function setLang(lang){{localStorage.setItem('lang', lang); window.location.reload();}}
-        </script>
         <br /><br />
         <en>If you want to change the language, please click the button.</en>
         <zh_cn>如果您想切换语言，请点击下一行相应按钮。</zh_cn>
@@ -45,6 +42,101 @@ HTML_TEMPLATE = '''
         <button type="button" onclick="setLang('en')"><en>En</en><zh_cn>Chinese</zh_cn><zh_tw>Traditional</zh_tw></button>
         <button type="button" onclick="setLang('zh_cn')"><en>英语</en><zh_cn>简体</zh_cn><zh_tw>繁体</zh_tw></button>
         <button type="button" onclick="setLang('zh_tw')"><en>英語</en><zh_cn>簡體</zh_cn><zh_tw>繁體</zh_tw></button>
+        <script>
+            document.getElementsByTagName('html')[0].setAttribute('lang', localStorage.getItem('lang') || 'en' );
+            function setLang(lang){{localStorage.setItem('lang', lang); window.location.reload();}}
+            
+            function updateBookHtml() {{
+                // const response = await fetch('/books/', {{method: 'GET'}});
+                // console.log('response', response);
+                // // document.getElementById('books').innerHTML = JSON.stringify(response.text);
+                // document.getElementById('books').innerHTML = response.text;
+                fetch('/books/')
+                .then(response => {{
+			      if (!response.ok) {{
+			        throw new Error('Failed to update book');
+			      }} else {{
+			        return response.text();
+			      }}
+			      // document.getElementById('books').innerHTML = JSON.stringify(response.text());
+			      // document.getElementById('books').innerHTML = response.text();
+			    }})
+                // .then(data => {{
+                //     console.log('data', data);
+			    //   document.getElementById('books').innerHTML = data; // JSON.stringify(data);
+			    // }})
+                .then(data => {{
+                   console.log('data', data);
+			       // document.getElementById('books').innerHTML = JSON.parse(data.substr(1, data.length - 2)); // JSON.stringify(data);
+			       document.getElementById('books').innerHTML = JSON.parse(data); // JSON.stringify(data);
+			    }})
+			    ;
+            }}
+            
+            function addBook(target) {{
+                const bookId = target.getAttribute('data-book-id');
+                // 用post方式调用/add_book接口，传入bookId
+                fetch('/add_book/' + bookId, {{method: 'POST'}})
+                .then(response => {{
+			      if (!response.ok) {{
+			        throw new Error('Failed to update book');
+			      }}
+			      updateBookHtml();
+			    }})
+			    .catch(error => {{
+			      console.error(error);
+			      // 处理错误
+			    }});
+            }}
+            
+            function likeBook(target) {{
+                const bookId = target.getAttribute('data-book-id');
+                // 调用/like_book接口，传入bookId
+                fetch('/like_book/' + bookId, {{method: 'PUT'}})
+                .then(response => {{
+			      if (!response.ok) {{
+			        throw new Error('Failed to update book');
+			      }}
+			      updateBookHtml();
+			    }})
+			    .catch(error => {{
+			      console.error(error);
+			      // 处理错误
+			    }});
+            }}
+            
+            function unlikeBook(target) {{
+                const bookId = target.getAttribute('data-book-id');
+                // 调用/unlike_book接口，传入bookId
+                fetch('/unlike_book/' + bookId, {{method: 'PATCH'}})
+                .then(response => {{
+			      if (!response.ok) {{
+			        throw new Error('Failed to update book');
+			      }}
+			      updateBookHtml();
+			    }})
+			    .catch(error => {{
+			      console.error(error);
+			      // 处理错误
+			    }});
+            }}
+            
+            function removeBook(target) {{
+                const bookId = target.getAttribute('data-book-id');
+                // 调用/remove_book接口，传入bookId
+                fetch('/remove_book/' + bookId, {{method: 'DELETE'}})
+                .then(response => {{
+			      if (!response.ok) {{
+			        throw new Error('Failed to update book');
+			      }}
+			      updateBookHtml();
+			    }})
+			    .catch(error => {{
+			      console.error(error);
+			      // 处理错误
+			    }});
+            }}
+        </script>
     </body>
 </html>
 '''
@@ -84,9 +176,17 @@ def read_contact_info():
 
 read_contact_info()
 
-
 @app.get('/', response_class=HTMLResponse)
 def get_html(response: Response):
+	# 遍历books目录下的所有文件，以及BOOKS列表，获取当前所有书籍的点赞数，合并为表格html。不在books目录的书籍，点赞数为0，且下方允许添加。
+	# 读取books目录下的所有文件，按文件名排序
+	books = sorted(os.listdir('books'))
+	# 读取books文件内容，获取点赞数（json结构）
+	books_info = []
+	for book in books:
+		with open(f'books/{book}', 'r', encoding='utf-8') as f:
+			books_info.append(json.load(f))
+
 	html_content = HTML_TEMPLATE.format("AnQi's resume Demo(python3.9 + FastAPI + REST API)", '''
                 <en>Resume:</en><zh_cn>简历：</zh_cn><zh_tw>簡歷：</zh_tw>
                 <en>
@@ -172,12 +272,36 @@ def get_html(response: Response):
                 /email &nbsp;
                 <a href="/email" target="_blank"><en>Email</en><zh_cn>邮箱</zh_cn><zh_tw>郵箱</zh_tw></a>
                 <br/><br/>
-                ''')
+                '''
+                + f'<div id="books">{get_books_html()}</div>')
 
 	response.headers["Content-Type"] = "text/html"
 
 	return html_content
 
+
+BOOKS = [
+	{
+		'id': 0,
+	    'url': 'https://book.douban.com/subject/26298694/',
+	    'name': {'en': 'An Introduction to General Systems Thinking', 'zh_cn': '系统化思维导论', 'zh_tw': '系統化思維導論'},
+	    'author': {'en': 'Gerald M.Weinberg', 'zh_cn': '（美）杰拉尔德·温伯格', 'zh_tw': '（美）傑拉爾德·溫伯格'}
+	 },
+	{
+		'id': 1,
+	    'url': 'https://book.douban.com/subject/26664522/',
+	    'name': {'en': 'The Non-Designer\'s Design Book', 'zh_cn': '写给大家看的设计书', 'zh_tw': '寫給大家看的設計書'},
+	    'author': {'en': 'Robin Wiliams', 'zh_cn': '（美）罗宾·威廉姆斯', 'zh_tw': '（美）羅賓·威廉姆斯'}
+	 },
+	{
+		'id': 2,
+	    'url': 'https://book.douban.com/subject/1193565/',
+	    'name': {'en': 'The Art of Word', 'zh_cn': 'Word排版艺术', 'zh_tw': 'Word排版藝術'},
+	    'author': {'en': 'Jie Hou', 'zh_cn': '侯捷', 'zh_tw': '侯捷'},
+	 },
+]
+# 转BOOKS为JSON，赋值给BOOKS_JSON
+BOOKS_JSON = json.dumps(BOOKS, ensure_ascii=False)
 
 @app.get('/en/', response_class=HTMLResponse)
 def get_en():
@@ -210,10 +334,10 @@ class NameKind(Enum):
 
 
 names = {NameKind.English: 'AnQi',  # 英文
-	NameKind.Chinese: '吴启萍',  # 简体
-	NameKind.Traditional: '吳啟萍',  # 繁体姓名
-	NameKind.Buddhist: 'AnQi/安启/安啟/安啓',  # 佛教法名安启，同时提供英文、简体中文、繁体中文，以/分隔
-}
+         NameKind.Chinese: '吴启萍',  # 简体
+         NameKind.Traditional: '吳啟萍',  # 繁体姓名
+         NameKind.Buddhist: 'AnQi/安启/安啟/安啓',  # 佛教法名安启，同时提供英文、简体中文、繁体中文，以/分隔
+         }
 
 
 # get_names的本机测试网址
@@ -245,3 +369,214 @@ def get_phone(response: Response):
 def get_phone(response: Response):
 	response.headers["Content-Type"] = "text/html"
 	return EMAIL
+
+
+def get_books_html():
+	# 遍历books目录下的所有文件，以及BOOKS列表，获取当前所有书籍的点赞数，合并为表格html。不在books目录的书籍，点赞数为0，且下方允许添加。
+	# 读取books目录下的所有文件，按文件名排序
+	books = sorted(os.listdir('books'))
+	# 读取books文件内容，获取点赞数（json结构）
+	books_info = []
+	for book in books:
+		with open(f'books/{book}', 'r', encoding='utf-8') as f:
+			books_info.append(json.load(f))
+
+	# print('books_info.length', len(books_info))
+
+	# 转换为html
+	books_html_list = []
+	for book_info in books_info:
+		# 读取书籍信息
+		book_id = book_info['id']
+
+		book_name = book_info['name']
+		book_name_en = book_name['en']
+		book_name_chinese = book_name['zh_cn']
+		book_name_traditional = book_name['zh_tw']
+
+		book_author = book_info['author']
+		book_author_en = book_author['en']
+		book_author_chinese = book_author['zh_cn']
+		book_author_traditional = book_author['zh_tw']
+
+		book_url = book_info['url']
+
+		book_like = book_info['like']
+
+		# 生成html
+		books_html_list.append(
+			f'<tr>'
+			f'<td><a href="{book_url}" target="_blank"><en>{book_name_en}</en><zh_cn>{book_name_chinese}</zh_cn><zh_tw>{book_name_traditional}</zh_tw></a></td>'
+			f'<td><en>{book_author_en}</en><zh_cn>{book_author_chinese}</zh_cn><zh_tw>{book_author_traditional}</zh_tw></td><td>{book_like}</td>'
+			f'<td>'
+			f'<button type="button" onclick="likeBook(this)" data-book-id="{book_id}"><en>Like</en><zh_cn>喜欢</zh_cn><zh_tw>喜歡</zh_tw></button>'
+			f'<button type="button" onclick="unlikeBook(this)" data-book-id="{book_id}"><en>Unlike</en><zh_cn>不喜欢</zh_cn><zh_tw>不喜歡</zh_tw></button>'
+			f'</td>'
+			f'<td><button type="button" onclick="removeBook(this)" data-book-id="{book_id}"><en>Remove</en><zh_cn>移除</zh_cn><zh_tw>移除</zh_tw></button></td>'
+			f'</tr>')
+
+	# print('books_html.length', len(books_html), books_html[0])
+
+	# 如果books_html为空，则转为""；否则，转为html
+	if not books_html_list:
+		print('not books_html')
+		books_html = ""
+	else:
+		books_html = ''.join(books_html_list)
+
+		books_html = f'<br /><br /><en>AnQi\'s Books</en><zh_cn>安启书架</zh_cn><zh_tw>安啟書架</zh_tw><br />' \
+		f'<table border="1" width="100%"><tr>' \
+		f'<th><en>Name</en><zh_cn>书名</zh_cn><zh_tw>書名</zh_tw></th>' \
+		f'<th><en>Author</en><zh_cn>作者</zh_cn><zh_tw>作者</zh_tw></th>' \
+		f'<th><en>Like Count</en><zh_cn>点赞数</zh_cn><zh_tw>點贊數</zh_tw></th>' \
+		f'<th><en>Like/Unlike</en><zh_cn>点赞/取消</zh_cn><zh_tw>點贊/取消</zh_tw></th>' \
+		f'<th><en>Remove</en><zh_cn>移除</zh_cn><zh_tw>移除</zh_tw></th>' \
+		f'</tr>{books_html}</table>'
+		# f'</tr>' + "".join(books_html) + f'</table>'
+	# print('books_html:', books_html)
+
+	# 结合books列表与BOOKS，生成未点赞的书籍html
+	EXISTS_BOOKS_ID = [book['id'] for book in books_info]
+	ALL_BOOKS_ID = [book['id'] for book in BOOKS] # BOOKS.keys() # AttributeError: 'list' object has no attribute 'keys'
+	NOT_EXISTS_BOOKS_ID = list(set(ALL_BOOKS_ID).difference(set(EXISTS_BOOKS_ID)))
+	NOT_EXISTS_BOOKS_ID = sorted(NOT_EXISTS_BOOKS_ID)
+
+	NOT_EXISTS_BOOKS_HTML = []
+	for book_id in NOT_EXISTS_BOOKS_ID:
+		book = BOOKS[book_id]
+
+		book_name = book['name']
+		book_name_en = book_name['en']
+		book_name_chinese = book_name['zh_cn']
+		book_name_traditional = book_name['zh_tw']
+
+		book_author = book['author']
+		book_author_en = book_author['en']
+		book_author_chinese = book_author['zh_cn']
+		book_author_traditional = book_author['zh_tw']
+
+		# book_url = book['url']
+
+		NOT_EXISTS_BOOKS_HTML.append(
+			f'<en>Name: </en><zh_cn>书名：</zh_cn><zh_tw>書名：</zh_tw>' \
+			f'<en>{book_name_en}</en><zh_cn>{book_name_chinese}</zh_cn><zh_tw>{book_name_traditional}</zh_tw><br/>' \
+			f'<en>Author: </en><zh_cn>作者：</zh_cn><zh_tw>作者：</zh_tw>' \
+			f'<en>{book_author_en}</en><zh_cn>{book_author_chinese}</zh_cn><zh_tw>{book_author_traditional}</zh_tw><br/>' \
+			f'<button type="button" onclick="addBook(this)" data-book-id="{book_id}"><en>Add</en><zh_cn>添加</zh_cn><zh_tw>添加</zh_tw></button>')
+
+	# 如果NOT_EXISTS_BOOKS_HTML为空，则转为""；否则，转为html
+	if not NOT_EXISTS_BOOKS_HTML:
+		NOT_EXISTS_BOOKS_HTML = ""
+	else:
+		NOT_EXISTS_BOOKS_HTML = f"<br /><br /><en>Add New Books</en><zh_cn>添加新书</zh_cn><zh_tw>添加新書</zh_tw><br />" \
+		                        f"{'<br /><br />'.join(NOT_EXISTS_BOOKS_HTML)}"
+
+	return f'{books_html}{NOT_EXISTS_BOOKS_HTML}'
+@app.get('/books/')
+def get_books():
+	return get_books_html()
+
+@app.get('/books/', response_class=HTMLResponse)
+def get_books(response: Response):
+	response.headers["Content-Type"] = "text/html"
+	# 返回BOOKS_JSON，去掉首尾的双引号
+	return BOOKS_JSON[1:-1]
+
+# 定义POST方法，/add_book/，接收一个int型参数book_id，用于添加书籍
+@app.post('/add_book/{book_id}')
+def add_book(book_id: int):
+	# 从BOOKS中获取book_id对应的书籍，如果不存在，则返回None
+	book = next((book for book in BOOKS if book['id'] == book_id), None)
+	# 如果book为None，则返回404
+	if book is None:
+		raise HTTPException(status_code=404, detail='Book not found')
+
+	filename = get_book_json_file(book_id)
+
+	# 判断books目录有没有以book_id加后缀.json的文件，如果没有则创建，如果有则忽略
+	if not os.path.exists(filename):
+		# 增加整数型属性like，值为0
+		book['like'] = 0
+		# 将book转为JSON，赋值给book_json
+		book_json = json.dumps(book, ensure_ascii=False)
+
+		# 将book_json写入books目录下以book_id加后缀.json的文件
+		with open(filename, 'w', encoding='utf-8') as f:
+			f.write(book_json)
+
+	# 如果book不为None，则返回book
+	return book
+
+# 定义PUT方法，/like_book/，接收一个int型参数book_id，用于点赞书籍（每次加1）
+@app.put('/like_book/{book_id}')
+def like_book(book_id: int):
+	# 先调用add_book方法，如果book_id对应的书籍不存在，则会创建
+	book = add_book(book_id)
+	# 如果book为None，则返回404
+	if book is None:
+		raise HTTPException(status_code=404, detail='Book not found')
+
+	# 从books目录下以book_id加后缀.json的文件中读取数据，like加1后写回文件
+	filename = get_book_json_file(book_id)
+	book = None
+	# 先读取，再覆盖式写入
+	with open(filename, 'r', encoding='utf-8') as f:
+		book = json.load(f)
+
+	with open(filename, 'w', encoding='utf-8') as f:
+		book['like'] += 1
+		book_json = json.dumps(book, ensure_ascii=False)
+		f.write(book_json)
+
+	return book
+
+# 定义DELETE方法，/remove_book/，接收一个int型参数book_id，用于删除书籍
+@app.delete('/remove_book/{book_id}')
+def remove_book(book_id: int):
+	# 从BOOKS中获取book_id对应的书籍，如果不存在，则返回None
+	book = next((book for book in BOOKS if book['id'] == book_id), None)
+	# 如果book为None，则返回404
+	if book is None:
+		raise HTTPException(status_code=404, detail='Book not found')
+
+	# 从books目录下以book_id加后缀.json的文件中删除
+	filename = get_book_json_file(book_id)
+	if os.path.exists(filename):
+		os.remove(filename)
+
+	return book
+
+# 定义PATCH方法，/unlike_book/，接收一个int型参数book_id，用于更新书籍
+@app.patch('/unlike_book/{book_id}')
+def unlike_book(book_id: int):
+	# 从BOOKS中获取book_id对应的书籍，如果不存在，则返回None
+	book = next((book for book in BOOKS if book['id'] == book_id), None)
+	# 如果book为None，则返回404
+	if book is None:
+		raise HTTPException(status_code=404, detail='Book not found')
+
+	# 从books目录下以book_id加后缀.json的文件中读取数据，like加1后写回文件
+	filename = get_book_json_file(book_id)
+
+	# 如果没有文件，则返回404
+	if not os.path.exists(filename):
+		raise HTTPException(status_code=404, detail='Book not found')
+
+	# 先读取，再覆盖式写入
+	with open(filename, 'r', encoding='utf-8') as f:
+		book = json.load(f)
+		book['like'] -= 1
+
+	if book['like'] <= 0:
+		os.remove(filename)
+	else:
+		with open(filename, 'w', encoding='utf-8') as f:
+			book_json = json.dumps(book, ensure_ascii=False)
+			f.write(book_json)
+
+	return book
+
+
+def get_book_json_file(book_id):
+	filename = './books/' + str(book_id) + '.json'
+	return filename

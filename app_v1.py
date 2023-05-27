@@ -67,7 +67,7 @@ def read_contact_info():
 		PHONE_INFO_TEL = []
 		for item in PHONE_INFO:
 			'''
-			"phone": "1377****404",
+			"phone": "137*****404",
 			"name": {
 				"en": "AnQi",
 				"chinese": "吴启萍",

@@ -496,8 +496,8 @@ def add_book(book_id: int):
 
 	# 判断books目录有没有以book_id加后缀.json的文件，如果没有则创建，如果有则忽略
 	if not os.path.exists(filename):
-		# 增加整数型属性like，值为0
-		book['like'] = 0
+		# 增加整数型属性like，值为1
+		book['like'] = 1
 		# 将book转为JSON，赋值给book_json
 		book_json = json.dumps(book, ensure_ascii=False)
 

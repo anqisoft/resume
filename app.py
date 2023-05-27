@@ -407,12 +407,13 @@ def get_books_html():
 		books_html_list.append(
 			f'<tr>'
 			f'<td><a href="{book_url}" target="_blank"><en>{book_name_en}</en><zh_cn>{book_name_chinese}</zh_cn><zh_tw>{book_name_traditional}</zh_tw></a></td>'
-			f'<td><en>{book_author_en}</en><zh_cn>{book_author_chinese}</zh_cn><zh_tw>{book_author_traditional}</zh_tw></td><td>{book_like}</td>'
-			f'<td>'
+			f'<td><en>{book_author_en}</en><zh_cn>{book_author_chinese}</zh_cn><zh_tw>{book_author_traditional}</zh_tw></td>'
+			f'<td style="text-align:right;">{book_like}</td>'
+			f'<td style="text-align:center;">'
 			f'<button type="button" onclick="likeBook(this)" data-book-id="{book_id}"><en>Like</en><zh_cn>喜欢</zh_cn><zh_tw>喜歡</zh_tw></button>'
-			f'<button type="button" onclick="unlikeBook(this)" data-book-id="{book_id}"><en>Unlike</en><zh_cn>不喜欢</zh_cn><zh_tw>不喜歡</zh_tw></button>'
+			f'&nbsp;&nbsp;<button type="button" onclick="unlikeBook(this)" data-book-id="{book_id}"><en>Unlike</en><zh_cn>不喜欢</zh_cn><zh_tw>不喜歡</zh_tw></button>'
 			f'</td>'
-			f'<td><button type="button" onclick="removeBook(this)" data-book-id="{book_id}"><en>Remove</en><zh_cn>移除</zh_cn><zh_tw>移除</zh_tw></button></td>'
+			f'<td style="text-align:center;"><button type="button" onclick="removeBook(this)" data-book-id="{book_id}"><en>Remove</en><zh_cn>移除</zh_cn><zh_tw>移除</zh_tw></button></td>'
 			f'</tr>')
 
 	# print('books_html.length', len(books_html), books_html[0])
